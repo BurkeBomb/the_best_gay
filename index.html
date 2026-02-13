@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReliCunts - The Hookup Quozz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background: #000000; 
+            color: white; 
+        }
+        .grindr-orange {
+            color: #ff9000;
+        }
+        .grindr-bg-orange {
+            background-color: #ff9000;
+        }
+        .grindr-border {
+            border-color: #262626;
+        }
+        .option-btn {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+        }
+        .option-btn:hover { 
+            background-color: #262626;
+            border-color: #ff9000;
+            transform: scale(1.01); 
+            transition: all 0.2s; 
+        }
+        .timer-bar { transition: width 1s linear; }
+        
+        /* Custom scrollbar for that app feel */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="max-w-md w-full bg-[#121212] p-8 rounded-2xl shadow-2xl border border-[#262626] text-center">
+        <h1 class="text-5xl font-black mb-2 tracking-tighter grindr-orange">ReliCunts</h1>
+        <p class="text-slate-400 mb-8 uppercase text-xs tracking-widest font-bold">The Better Gay</p>
+        
+        <div class="text-left mb-6">
+            <label class="text-[10px] uppercase font-bold text-slate-500 ml-1">Display Name</label>
+            <input type="text" id="player-name" placeholder="Who are you looking for?" 
+                   class="w-full bg-[#1a1a1a] border border-[#333] rounded-lg p-4 mt-1 text-white focus:border-[#ff9000] outline-none transition-colors">
+        </div>
+        
+        <button onclick="startQuiz()" class="w-full grindr-bg-orange hover:bg-[#e68200] text-black font-black py-4 rounded-lg shadow-lg transition-all uppercase tracking-tight">
+            Accept & Connect
+        </button>
+        <p class="text-[9px] text-slate-600 mt-4 italic">By clicking you agree to be judged by your peers.</p>
+    </div>
+
+    <!-- Quiz Screen -->
+    <div id="quiz-screen" class="hidden max-w-2xl w-full bg-[#121212] p-6 md:p-10 rounded-2xl shadow-2xl border border-[#262626]">
+        <div class="flex justify-between items-center mb-6">
+            <span id="question-count" class="text-slate-500 text-sm font-bold uppercase tracking-tighter">01 / 15</span>
+            <div id="timer-box" class="flex items-center space-x-3">
+                <div class="w-24 h-1.5 bg-[#262626] rounded-full overflow-hidden">
+                    <div id="timer-fill" class="h-full grindr-bg-orange timer-bar" style="width: 100%"></div>
+                </div>
+                <span class="grindr-orange font-black text-sm w-4" id="timer-text">15</span>
+            </div>
+        </div>
+
+        <h2 id="question-text" class="text-2xl font-bold mb-8 leading-tight">Loading...</h2>
+
+        <div id="options-container" class="grid grid-cols-1 gap-3">
+            <!-- Options injected here -->
+        </div>
+    </div>
+
+    <!-- Results Screen -->
+    <div id="result-screen" class="hidden max-w-md w-full bg-[#121212] p-8 rounded-2xl shadow-2xl border border-[#262626] text-center">
+        <div class="w-20 h-20 grindr-bg-orange rounded-full flex items-center justify-center mx-auto mb-6">
+            <span class="text-4xl">🎭</span>
+        </div>
+        <h2 id="final-name" class="text-3xl font-black mb-1">Final Stats</h2>
+        <div id="score-display" class="text-6xl font-black grindr-orange mb-4">0/15</div>
+        <p id="rank-text" class="text-slate-400 mb-8 font-medium italic"></p>
+
+        <button onclick="copyForWhatsApp()" class=
