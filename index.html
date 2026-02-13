@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>ReliCunts - The Hookup Quozz</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#ff9000" />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+    body { font-family:'Outfit',sans-serif; background:#000; color:#fff; }
+    .grindr-orange { color:#ff9000; }
+    .grindr-bg-orange { background-color:#ff9000; }
+    .option-btn { background-color:#1a1a1a; border:1px solid #333; }
+    .option-btn:hover { background-color:#262626; border-color:#ff9000; transform:scale(1.01); transition:all .2s; }
+    .timer-bar { transition: width 1s linear; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background:#000; }
+    ::-webkit-scrollbar-thumb { background:#333; border-radius:10px; }
+
+    /* feedback flash */
+    .flash-correct { outline: 2px solid rgba(34,197,94,.9); background: rgba(34,197,94,.12) !important; }
+    .flash-wrong   { outline: 2px solid rgba(239,68,68,.9); background: rgba(239,68,68,.12) !important; }
+
+    /* toast */
+    .toast{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+      background:rgba(18,18,18,.95);border:1px solid #262626;
+      padding:10px 14px;border-radius:14px;font-size:12px;
+      box-shadow:0 10px 40px rgba(0,0,0,.45);
+      opacity:0;pointer-events:none;transition:opacity .2s ease;max-width:92vw;
+      z-index:9998;
+    }
+    .toast.show{opacity:1;}
+
+    /* Confetti canvas */
+    #confettiCanvas{position:fixed;inset:0;pointer-events:none;z-index:9999;display:none;}
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-4">
+
+  <canvas id="confettiCanvas"></canvas>
+
+  <!-- Start Screen -->
+  <div id="start-screen" class="max-w-md w-full bg-[#121212] p-8 rounded-2xl shadow-2xl border border-[#262626] text-center">
+    <h1 class="text-5xl font-black mb-2 tracking-tighter grindr-orange">ReliCunts</h1>
+    <p class="text-slate-400 mb-8 uppercase text-xs tracking-widest font-bold">The Hookup Quozz</p>
+
+    <div class="text-left mb-6">
+      <label class="text-[10px] uppercase font-bold text-slate-500 ml-1">Display Name</label>
+      <input type="text" id="player-name" placeholder="Who are you looking for?"
+        class="w-full bg-[#1a1a1a] border border-[#333] rounded-lg p-4 mt-1 text-white focus:border-[#ff9000] outline-none transition-colors" />
+      <p class="text-[10px] text-slate-600 mt-2">Tap 🔊 to enable sound after you interact.</p>
+    </div>
+
+    <div class="flex gap-3">
+      <button id="startBtn" class="flex-1 grindr-bg-orange hover:bg-[#e68200] text-black font-black py-4 rounded-lg shadow-lg transition-all uppercase tracking-tight">
+        Accept & Connect
+      </button>
+      <button id="soundBtnStart" class="w-14 bg-[#1a1a1a] hover:bg-[#262626] border border-[#333] hover:border-[#ff9000] rounded-lg font-black transition-all flex items-center justify-center"
+        title="Toggle Sound">🔇</button>
+    </div>
+
+    <p class="text-[9px] text-slate-600 mt-4 italic">By clicking you agree to be judged by your peers.</p>
+
+    <div class="mt-6 text-left">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Leaderboard (local)</span>
+        <button id="clearBoard" class="text-[10px] text-slate-600 hover:text-slate-300">Clear</button>
+      </div>
+      <div id="leaderboardStart" class="bg-[#0f0f0f] border border-[#262626] rounded-xl p-3 text-xs text-slate-300 min-h-[68px]"></div>
+    </div>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div id="quiz-screen" class="hidden max-w-2xl w-full bg-[#121212] p-6 md:p-10 rounded-2xl shadow-2xl border border-[#262626]">
+    <div class="flex justify-between items-center mb-6">
+      <span id="question-count" class="text-slate-500 text-sm font-bold uppercase tracking-tighter">01 / 15</span>
+
+      <div class="flex items-center gap-3">
+        <button id="soundBtnQuiz" class="w-10 h-10 bg-[#1a1a1a] hover:bg-[#262626] border border-[#333] hover:border-[#ff9000] rounded-lg font-black transition-all flex items-center justify-center"
+          title="Toggle Sound">🔇</button>
+
+        <div id="timer-box" class="flex items-center space-x-3">
+          <div class="w-24 h-1.5 bg-[#262626] rounded-full overflow-hidden">
+            <div id="timer-fill" class="h-full grindr-bg-orange timer-bar" style="width: 100%"></div>
+          </div>
+          <span class="grindr-orange font-black text-sm w-6 text-right" id="timer-text">15</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 id="question-text" class="text-2xl font-bold mb-8 leading-tight">Loading...</h2>
+    <div id="options-container" class="grid grid-cols-1 gap-3"></div>
+
+    <div class="mt-6 flex justify-between items-center">
+      <button id="skipBtn" class="text-xs uppercase tracking-widest font-bold text-slate-500 hover:text-slate-300 transition">
+        Skip (0 pts)
+      </button>
+      <span id="hint-text" class="text-[10px] text-slate-600 italic"></span>
+    </div>
+  </div>
+
+  <!-- Results Screen -->
+  <div id="result-screen" class="hidden max-w-md w-full bg-[#121212] p-8 rounded-2xl shadow-2xl border border-[#262626] text-center">
+    <div class="w-20 h-20 grindr-bg-orange rounded-full flex items-center justify-center mx-auto mb-6">
+      <span class="text-4xl">🎭</span>
+    </div>
+    <h2 id="final-name" class="text-3xl font-black mb-1">Final Stats</h2>
+    <div id="score-display" class="text-6xl font-black grindr-orange mb-3">0/15</div>
+    <p id="rank-text" class="text-slate-400 mb-6 font-medium italic"></p>
+
+    <div class="grid grid-cols-1 gap-3">
+      <button id="copyBtn" class="w-full bg-[#1a1a1a] hover:bg-[#262626] border border-[#333] hover:border-[#ff9000] text-white font-black py-4 rounded-lg shadow-lg transition-all uppercase tracking-tight">
+        Copy result
+      </button>
+
+      <a id="waLink" href="#" target="_blank" rel="noopener"
+        class="w-full bg-[#25d366] hover:bg-[#1ebe57] text-white font-black py-4 rounded-lg shadow-lg transition-all flex items-center justify-center space-x-2 uppercase tracking-tighter">
+        <span>Send on WhatsApp</span>
+      </a>
+
+      <button id="restartBtn" class="w-full grindr-bg-orange hover:bg-[#e68200] text-black font-black py-4 rounded-lg shadow-lg transition-all uppercase tracking-tight">
+        Run it again
+      </button>
+    </div>
+
+    <div class="mt-6 text-left">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Leaderboard (local)</span>
+        <button id="clearBoard2" class="text-[10px] text-slate-600 hover:text-slate-300">Clear</button>
+      </div>
+      <div id="leaderboardResults" class="bg-[#0f0f0f] border border-[#262626] rounded-xl p-3 text-xs text-slate-300 min-h-[68px]"></div>
+    </div>
+
+    <button onclick="location.reload()" class="mt-6 text-slate-500 hover:text-white text-xs uppercase font-bold tracking-widest transition-colors">
+      Log Out / Refresh
+    </button>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+/* PWA SW */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+
+/* Questions (from your PDF) */
+const questions = [
+  { q: "What does 'Looking for Generous' usually mean on a profile?", options: ["They donate to charity", "They are looking for a financial arrangement", "They share their Netflix password", "They buy everyone drinks"], a: 1 },
+  { q: "If someone asks 'Is it clean?', what are they (rudely) asking about?", options: ["Your apartment", "Your STI status", "Your laundry", "Your car"], a: 1 },
+  { q: "What is the universal emoji for 'Looking for fun right now'?", options: ["🔥", "🍦", "💎", "⏳"], a: 3 },
+  { q: "What is an 'Otter' in the community?", options: ["A guy who likes swimming", "A hairy guy with a slim/athletic build", "A young guy with no hair", "A guy who only dates older men"], a: 1 },
+  { q: "If a profile says 'NSA', what does it stand for?", options: ["Never Stay Alone", "No Strings Attached", "National Security Agency", "Not So Average"], a: 1 },
+  { q: "Which app uses a 'Yellow/Orange' interface and is mostly for the bearded/masc crowd?", options: ["Tinder", "Grindr", "Scruff", "Sniffies"], a: 2 },
+  { q: "What does 'Parous' or 'Party' usually imply in a profile bio?", options: ["A birthday celebration", "Drug use (PnP)", "Clubbing", "Board games"], a: 1 },
+  { q: "If someone is 'DL', what are they?", options: ["Down to Link", "Down Low (Secretive about their sexuality)", "Deeply Loyal", "Driving License holder"], a: 1 },
+  { q: "What does the 'Ice Cream' emoji often mean on the apps?", options: ["They want dessert", "Methamphetamine", "They are cold", "They like oral"], a: 1 },
+  { q: "If someone sends you a 'Tap' or a 'Woof', what are they doing?", options: ["Sending a formal invitation", "Showing interest without typing", "Reporting your profile", "Asking for money"], a: 1 },
+  { q: "What is a 'Side'?", options: ["A person who only likes salad", "Someone who prefers non-penetrative sex", "A backup date", "Someone who only dates trans people"], a: 1 },
+  { q: "In the 'Tribes' section, what is a 'Bear'?", options: ["A large, hairy man", "A guy who likes camping", "A gym rat", "A guy who is aggressive"], a: 0 },
+  { q: "What does 'Looking' usually mean if that is the only word in the bio?", options: ["They lost their keys", "They are ready to meet immediately", "They are a photographer", "They are searching for a boyfriend"], a: 1 },
+  { q: "What is the most common 'Ghosting' excuse?", options: ["'My phone died'", "'I fell asleep'", "No excuse, just silence", "All of the above"], a: 3 },
+  { q: "If someone is 'VPL', what are they showing off?", options: ["Very Poor Logic", "Visible Panty Line (or underwear line)", "Very Private Location", "Versatile Power Level"], a: 1 }
+];
+
+const TIME_PER_QUESTION = 15;
+let currentQuestion = 0;
+let score = 0;
+let timer = null;
+let timeLeft = TIME_PER_QUESTION;
+let playerName = "";
+let locked = false;
+
+const $ = (id) => document.getElementById(id);
+const startScreen = $("start-screen");
+const quizScreen = $("quiz-screen");
+const resultScreen = $("result-screen");
+const toast = $("toast");
+
+const nameInput = $("player-name");
+const startBtn = $("startBtn");
+const skipBtn = $("skipBtn");
+const restartBtn = $("restartBtn");
+const copyBtn = $("copyBtn");
+const waLink = $("waLink");
+
+const questionCount = $("question-count");
+const questionText = $("question-text");
+const optionsContainer = $("options-container");
+const hintText = $("hint-text");
+
+const timerText = $("timer-text");
+const timerFill = $("timer-fill");
+
+const finalName = $("final-name");
+const scoreDisplay = $("score-display");
+const rankText = $("rank-text");
+
+const lbStart = $("leaderboardStart");
+const lbResults = $("leaderboardResults");
+const clearBoard = $("clearBoard");
+const clearBoard2 = $("clearBoard2");
+
+/* Toast */
+let toastT = null;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toast.classList.remove("show"), 1600);
+}
+
+/* Sounds (WebAudio) */
+let soundEnabled = false;
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume().catch(()=>{});
+}
+function beep(type="click") {
+  if (!soundEnabled) return;
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+
+  let freq = 440, dur = 0.08;
+  if (type === "correct") { freq = 740; dur = 0.10; }
+  if (type === "wrong")   { freq = 180; dur = 0.14; }
+  if (type === "timeout") { freq = 120; dur = 0.18; }
+  if (type === "finish")  { freq = 880; dur = 0.20; }
+
+  o.type = "sine";
+  o.frequency.value = freq;
+  g.gain.value = 0.0001;
+
+  const t = audioCtx.currentTime;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
+function setSoundUI() {
+  $("soundBtnStart").textContent = soundEnabled ? "🔊" : "🔇";
+  $("soundBtnQuiz").textContent = soundEnabled ? "🔊" : "🔇";
+}
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  if (soundEnabled) ensureAudio();
+  setSoundUI();
+  showToast(soundEnabled ? "Sound ON 🔊" : "Sound OFF 🔇");
+}
+
+/* Leaderboard */
+const LB_KEY = "relicunts_leaderboard_v1";
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+function loadLB(){ try { return JSON.parse(localStorage.getItem(LB_KEY)||"[]"); } catch { return []; } }
+function saveLB(entries){ localStorage.setItem(LB_KEY, JSON.stringify(entries.slice(0,10))); }
+function addLB(name, score, total){
+  const entry = { name, score, total, ts: new Date().toISOString() };
+  const entries = loadLB();
+  entries.push(entry);
+  entries.sort((a,b)=> (b.score-a.score) || (new Date(b.ts)-new Date(a.ts)));
+  saveLB(entries);
+}
+function renderLB(targetEl){
+  const entries = loadLB();
+  if (!entries.length) {
+    targetEl.innerHTML = `<span class="text-slate-600">No local legends yet. Be the first menace.</span>`;
+    return;
+  }
+  targetEl.innerHTML = entries.map((e,i)=>{
+    const d = new Date(e.ts);
+    const when = d.toLocaleDateString(undefined, {year:"2-digit",month:"short",day:"2-digit"});
+    return `<div class="flex items-center justify-between py-1">
+      <span class="truncate max-w-[65%]"><span class="text-slate-600 mr-2">#${i+1}</span>${escapeHtml(e.name)}</span>
+      <span class="grindr-orange font-black">${e.score}/${e.total}</span>
+      <span class="text-slate-600 text-[10px] ml-2">${when}</span>
+    </div>`;
+  }).join("");
+}
+function clearLBAll(){
+  localStorage.removeItem(LB_KEY);
+  renderLB(lbStart); renderLB(lbResults);
+  showToast("Leaderboard cleared.");
+}
+
+/* Confetti */
+const confettiCanvas = document.getElementById("confettiCanvas");
+const ctx = confettiCanvas.getContext("2d");
+let confettiRunning = false;
+let confettiPieces = [];
+let confettiRAF = null;
+
+function resizeConfetti(){
+  confettiCanvas.width = window.innerWidth * devicePixelRatio;
+  confettiCanvas.height = window.innerHeight * devicePixelRatio;
+}
+window.addEventListener("resize", resizeConfetti);
+
+function startConfetti(durationMs=2200){
+  resizeConfetti();
+  confettiCanvas.style.display = "block";
+  confettiRunning = true;
+
+  const w = confettiCanvas.width, h = confettiCanvas.height;
+  confettiPieces = Array.from({length:180}, ()=> ({
+    x: Math.random()*w,
+    y: -Math.random()*h*0.3,
+    r: (Math.random()*6+4)*devicePixelRatio,
+    vx: (Math.random()-0.5)*2*devicePixelRatio,
+    vy: (Math.random()*3+2)*devicePixelRatio,
+    rot: Math.random()*Math.PI,
+    vr: (Math.random()-0.5)*0.2,
+    c: `hsl(${Math.floor(Math.random()*360)}, 90%, 60%)`
+  }));
+
+  const start = performance.now();
+  const tick = (t)=>{
+    if (!confettiRunning) return;
+    ctx.clearRect(0,0,w,h);
+    for (const p of confettiPieces){
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      p.vy += 0.02 * devicePixelRatio;
+
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r*0.6);
+      ctx.restore();
+
+      if (p.y > h + 50){ p.y = -20; p.x = Math.random()*w; p.vy = (Math.random()*3+2)*devicePixelRatio; }
+    }
+    if (t - start > durationMs) stopConfetti();
+    else confettiRAF = requestAnimationFrame(tick);
+  };
+  confettiRAF = requestAnimationFrame(tick);
+}
+function stopConfetti(){
+  confettiRunning = false;
+  if (confettiRAF) cancelAnimationFrame(confettiRAF);
+  confettiCanvas.style.display = "none";
+}
+
+/* Quiz flow */
+function startQuiz(){
+  playerName = (nameInput.value || "").trim();
+  if (!playerName){
+    nameInput.classList.add("border-red-500");
+    showToast("Name required, babe.");
+    return;
+  }
+  nameInput.classList.remove("border-red-500");
+  currentQuestion = 0; score = 0;
+
+  startScreen.classList.add("hidden");
+  resultScreen.classList.add("hidden");
+  quizScreen.classList.remove("hidden");
+
+  showQuestion();
+}
+
+function showQuestion(){
+  locked = false;
+  if (currentQuestion >= questions.length){ endQuiz(); return; }
+
+  const q = questions[currentQuestion];
+  questionCount.innerText = `${String(currentQuestion+1).padStart(2,'0')} / ${String(questions.length).padStart(2,'0')}`;
+  questionText.innerText = q.q;
+  hintText.innerText = "";
+
+  optionsContainer.innerHTML = "";
+  q.options.forEach((opt,i)=>{
+    const btn = document.createElement("button");
+    btn.className = "option-btn w-full text-left p-4 rounded-lg transition-all font-bold text-lg";
+    btn.innerText = opt;
+    btn.onclick = () => selectOption(i);
+    optionsContainer.appendChild(btn);
+  });
+
+  resetTimer();
+}
+
+function resetTimer(){
+  clearInterval(timer);
+  timeLeft = TIME_PER_QUESTION;
+  updateTimerUI();
+  timer = setInterval(()=>{
+    timeLeft--;
+    updateTimerUI();
+    if (timeLeft <= 0) selectOption(-1, true);
+  }, 1000);
+}
+
+function updateTimerUI(){
+  timerText.innerText = String(Math.max(timeLeft,0));
+  timerFill.style.width = (Math.max(timeLeft,0) / TIME_PER_QUESTION * 100) + "%";
+}
+
+function selectOption(index, isTimeout=false){
+  if (locked) return;
+  if (currentQuestion >= questions.length) return;
+  locked = true;
+  clearInterval(timer);
+
+  const q = questions[currentQuestion];
+  const correctIndex = q.a;
+  const btns = [...optionsContainer.querySelectorAll("button")];
+  btns.forEach(b => b.disabled = true);
+
+  const correct = (index === correctIndex);
+  if (correct) score++;
+
+  if (btns[correctIndex]) btns[correctIndex].classList.add("flash-correct");
+  if (!correct && index >= 0 && btns[index]) btns[index].classList.add("flash-wrong");
+
+  if (isTimeout){ beep("timeout"); showToast("Time’s up ⏳"); }
+  else if (correct){ beep("correct"); }
+  else { beep("wrong"); }
+
+  setTimeout(()=>{
+    currentQuestion++;
+    showQuestion();
+  }, 420);
+}
+
+function endQuiz(){
+  quizScreen.classList.add("hidden");
+  resultScreen.classList.remove("hidden");
+
+  scoreDisplay.innerText = `${score}/${questions.length}`;
+  finalName.innerText = `${playerName}'s Final Stats`;
+
+  let rank = "";
+  if (score === 15) rank = "TOP TIER CUNT. The CEO of Grindr is shaking.";
+  else if (score > 10) rank = "PRO STATUS. You know exactly what the emojis mean.";
+  else if (score > 5) rank = "CASUAL USER. You probably have notifications muted.";
+  else rank = "NEWBIE. Go back to Tinder, honey.";
+  rankText.innerText = rank;
+
+  addLB(playerName, score, questions.length);
+  renderLB(lbStart); renderLB(lbResults);
+
+  const shareText =
+`🎭 *RELICUNTS: HOOKUP QUIZ* 🎭
+
+*Name:* ${playerName}
+*Score:* ${score}/${questions.length}
+*Rank:* ${rank}
+
+Can you beat my stats? 💅💦`;
+
+  waLink.href = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+
+  if (score === questions.length){
+    beep("finish");
+    startConfetti(2400);
+    showToast("15/15. Absolute menace. 🎉");
+  }
+}
+
+async function copyResult(){
+  const text =
+`🎭 RELICUNTS: HOOKUP QUIZ 🎭
+
+Name: ${playerName}
+Score: ${score}/${questions.length}
+Rank: ${rankText.innerText}
+
+Can you beat my stats?`;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied ✅ Paste it in the group.");
+    beep("click");
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); showToast("Copied ✅ Paste it in the group."); }
+    catch { showToast("Copy blocked by browser."); }
+    document.body.removeChild(ta);
+  }
+}
+
+/* Events */
+startBtn.addEventListener("click", () => { beep("click"); startQuiz(); });
+skipBtn.addEventListener("click", () => { beep("click"); selectOption(-1, false); });
+restartBtn.addEventListener("click", () => location.reload());
+copyBtn.addEventListener("click", copyResult);
+
+document.getElementById("soundBtnStart").addEventListener("click", toggleSound);
+document.getElementById("soundBtnQuiz").addEventListener("click", toggleSound);
+
+nameInput.addEventListener("input", () => nameInput.classList.remove("border-red-500"));
+clearBoard.addEventListener("click", clearLBAll);
+clearBoard2.addEventListener("click", clearLBAll);
+
+/* init */
+renderLB(lbStart); renderLB(lbResults);
+setSoundUI();
+</script>
+
+</body>
+</html>
